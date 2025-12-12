@@ -657,23 +657,27 @@ def student_payments():
 
 
 # --- Initialize DB ---
-# --- Initialize DB ---
+# --- Initialize DB Lazily ---
 def init_db():
     try:
-        with app.app_context():
-            db.create_all()
-            # Create default admin if not exists
-            if not User.query.filter_by(username='admin').first():
-                admin = User(username='admin', email='admin@library.com', role='admin')
-                admin.set_password('admin123')
-                db.session.add(admin)
-                db.session.commit()
-            print("Database initialized successfully.")
+        db.create_all()
+        # Create default admin if not exists
+        if not User.query.filter_by(username='admin').first():
+            admin = User(username='admin', email='admin@library.com', role='admin')
+            admin.set_password('admin123')
+            db.session.add(admin)
+            db.session.commit()
+        # print("Database initialized successfully.") 
     except Exception as e:
         print(f"Error initializing database: {e}")
 
-# Run init_db on import (but catch errors so app doesn't crash)
-init_db()
+@app.before_request
+def initialize_database():
+    if not getattr(app, 'db_initialized', False):
+        init_db()
+        app.db_initialized = True
 
 if __name__ == '__main__':
+    with app.app_context():
+        init_db()
     app.run(debug=True)
