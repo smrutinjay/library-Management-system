@@ -21,6 +21,11 @@ if database_url:
     # Fix for SQLAlchemy requiring 'postgresql://' instead of 'postgres://'
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
+    
+    # Enforce SSL for Neon
+    if "sslmode" not in database_url:
+        database_url += "?sslmode=require"
+        
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 elif os.environ.get('VERCEL'):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/library.db'
@@ -676,17 +681,17 @@ def student_payments():
 # --- Initialize DB ---
 # --- Initialize DB Lazily ---
 def init_db():
-    try:
-        db.create_all()
-        # Create default admin if not exists
-        if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin', email='admin@library.com', role='admin')
-            admin.set_password('admin123')
-            db.session.add(admin)
-            db.session.commit()
-        # print("Database initialized successfully.") 
-    except Exception as e:
-        print(f"Error initializing database: {e}")
+    # Attempt to create tables. If this fails (e.g., connection error),
+    # let it crash so Vercel logs show the REAL error.
+    db.create_all()
+    
+    # Create default admin if not exists
+    if not User.query.filter_by(username='admin').first():
+        admin = User(username='admin', email='admin@library.com', role='admin')
+        admin.set_password('admin123')
+        db.session.add(admin)
+        db.session.commit()
+    # print("Database initialized successfully.")
 
 @app.before_request
 def initialize_database():
