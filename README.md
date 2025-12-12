@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Library Management System
 
 A comprehensive Library Management System built with Flask, SQLAlchemy, and Tailwind CSS.
@@ -34,3 +35,7 @@ A comprehensive Library Management System built with Flask, SQLAlchemy, and Tail
 -   **Database**: SQLite (SQLAlchemy)
 -   **Frontend**: HTML, Tailwind CSS, JavaScript
 -   **Deployment**: Waitress (WSGI), Docker
+=======
+# library-Management-system
+This is a library management system
+>>>>>>> 703435e82137d044e020bc7d01b8e24fd5b3ea2c
