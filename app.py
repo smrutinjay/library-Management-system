@@ -657,14 +657,23 @@ def student_payments():
 
 
 # --- Initialize DB ---
-with app.app_context():
-    db.create_all()
-    # Create default admin if not exists
-    if not User.query.filter_by(username='admin').first():
-        admin = User(username='admin', email='admin@library.com', role='admin')
-        admin.set_password('admin123')
-        db.session.add(admin)
-        db.session.commit()
+# --- Initialize DB ---
+def init_db():
+    try:
+        with app.app_context():
+            db.create_all()
+            # Create default admin if not exists
+            if not User.query.filter_by(username='admin').first():
+                admin = User(username='admin', email='admin@library.com', role='admin')
+                admin.set_password('admin123')
+                db.session.add(admin)
+                db.session.commit()
+            print("Database initialized successfully.")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+
+# Run init_db on import (but catch errors so app doesn't crash)
+init_db()
 
 if __name__ == '__main__':
     app.run(debug=True)
