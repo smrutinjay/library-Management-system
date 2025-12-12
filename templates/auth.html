@@ -48,13 +48,15 @@
                 <div class="grid grid-cols-12 gap-3">
                     <!-- Row 1: Name & Email -->
                     <div class="col-span-6">
-                        <label class="block text-xs font-medium text-slate-700 mb-1">Full Name</label>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Full Name <span
+                                class="text-red-500">*</span></label>
                         <input type="text" name="full_name" required
                             class="block w-full px-2 py-1.5 border rounded focus:ring-1 focus:ring-blue-500 outline-none text-xs"
                             placeholder="John Doe">
                     </div>
                     <div class="col-span-6">
-                        <label class="block text-xs font-medium text-slate-700 mb-1">Email</label>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Email <span
+                                class="text-red-500">*</span></label>
                         <input type="email" name="email" required
                             class="block w-full px-2 py-1.5 border rounded focus:ring-1 focus:ring-blue-500 outline-none text-xs"
                             placeholder="john@example.com">
@@ -62,12 +64,14 @@
 
                     <!-- Row 2: Mobile & Reg No -->
                     <div class="col-span-6">
-                        <label class="block text-xs font-medium text-slate-700 mb-1">Mobile</label>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Mobile <span
+                                class="text-red-500">*</span></label>
                         <input type="tel" id="mobile_number" name="mobile_number" required
                             class="block w-full px-2 py-1.5 border rounded focus:ring-1 focus:ring-blue-500 outline-none text-xs h-8">
                     </div>
                     <div class="col-span-6">
-                        <label class="block text-xs font-medium text-slate-700 mb-1">Reg. No</label>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Reg. No <span
+                                class="text-red-500">*</span></label>
                         <input type="text" name="reg_no" required
                             class="block w-full px-2 py-1.5 border rounded focus:ring-1 focus:ring-blue-500 outline-none text-xs"
                             placeholder="12345">
@@ -75,18 +79,21 @@
 
                     <!-- Row 3: DOB, Section, Sem -->
                     <div class="col-span-4">
-                        <label class="block text-xs font-medium text-slate-700 mb-1">DOB</label>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">DOB <span
+                                class="text-red-500">*</span></label>
                         <input type="date" name="dob" required
                             class="block w-full px-2 py-1.5 border rounded focus:ring-1 focus:ring-blue-500 outline-none text-xs">
                     </div>
                     <div class="col-span-4">
-                        <label class="block text-xs font-medium text-slate-700 mb-1">Section</label>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Section <span
+                                class="text-red-500">*</span></label>
                         <input type="text" name="section" required pattern="[0-9][A-Z][0-9]" title="e.g., 2J3"
                             class="block w-full px-2 py-1.5 border rounded focus:ring-1 focus:ring-blue-500 outline-none text-xs"
                             placeholder="2J3">
                     </div>
                     <div class="col-span-4">
-                        <label class="block text-xs font-medium text-slate-700 mb-1">Sem</label>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Sem <span
+                                class="text-red-500">*</span></label>
                         <input type="number" name="semester" min="1" max="8" required
                             class="block w-full px-2 py-1.5 border rounded focus:ring-1 focus:ring-blue-500 outline-none text-xs"
                             placeholder="1-8">
@@ -94,12 +101,14 @@
 
                     <!-- Row 4: Photo & Username -->
                     <div class="col-span-6">
-                        <label class="block text-xs font-medium text-slate-700 mb-1">Photo</label>
-                        <input type="file" name="photo" accept="image/*"
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Photo <span
+                                class="text-red-500">*</span></label>
+                        <input type="file" name="photo" accept="image/*" required
                             class="block w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                     </div>
                     <div class="col-span-6">
-                        <label class="block text-xs font-medium text-slate-700 mb-1">Username</label>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Username <span
+                                class="text-red-500">*</span></label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                                 <i class="fas fa-user text-slate-400 text-xs"></i>
@@ -112,7 +121,8 @@
 
                     <!-- Row 5: Password & Button -->
                     <div class="col-span-6">
-                        <label class="block text-xs font-medium text-slate-700 mb-1">Password</label>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Password <span
+                                class="text-red-500">*</span></label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                                 <i class="fas fa-lock text-slate-400 text-xs"></i>

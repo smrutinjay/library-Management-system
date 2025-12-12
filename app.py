@@ -166,6 +166,10 @@ def register():
         photo = request.files.get('photo')
         photo_filename = None
         if photo:
+            if not photo.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                flash('Invalid photo format. Please use PNG, JPG, or JPEG.', 'error')
+                return redirect(request.url)
+                
             filename = secure_filename(photo.filename)
             photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             photo_filename = filename
@@ -612,6 +616,8 @@ def student_dashboard():
     favorite_genre = "N/A"
     if genres:
         favorite_genre = Counter(genres).most_common(1)[0][0]
+    
+    books = Book.query.all()
     
     return render_template('student_dashboard.html', 
                            books=books, 
