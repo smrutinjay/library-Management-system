@@ -15,7 +15,8 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'dev-secret-key-change-in-prod'
 
 # Database Configuration
-database_url = os.environ.get('DATABASE_URL')
+# Vercel Storage (Neon) usually sets POSTGRES_URL
+database_url = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
 
 if database_url:
     # Fix for SQLAlchemy requiring 'postgresql://' instead of 'postgres://'
