@@ -455,7 +455,7 @@ def import_books():
                 df = pd.read_excel(file)
                 
                 # Check columns
-                required_cols = ['Title', 'Author', 'Total Copies']
+                required_cols = ['Title', 'Author', 'ISBN', 'Category', 'Total Copies']
                 if not all(col in df.columns for col in required_cols):
                     flash(f'Missing columns. Required: {", ".join(required_cols)}', 'error')
                     return redirect(request.url)
@@ -466,6 +466,8 @@ def import_books():
                 for _, row in df.iterrows():
                     title = str(row['Title']).strip()
                     author = str(row['Author']).strip()
+                    isbn = str(row['ISBN']).strip()
+                    category = str(row['Category']).strip()
                     try:
                         copies = int(row['Total Copies'])
                     except ValueError:
@@ -474,14 +476,15 @@ def import_books():
                     if not title or copies < 1:
                         continue
 
-                    existing_book = Book.query.filter_by(title=title).first()
+                    # Check by ISBN (more reliable) or Title
+                    existing_book = Book.query.filter((Book.isbn == isbn) | (Book.title == title)).first()
                     
                     if existing_book:
                         existing_book.quantity += copies
                         existing_book.available += copies
                         count_updated += 1
                     else:
-                        new_book = Book(title=title, author=author, quantity=copies, available=copies)
+                        new_book = Book(title=title, author=author, isbn=isbn, category=category, quantity=copies, available=copies)
                         db.session.add(new_book)
                         count_new += 1
                 
