@@ -41,7 +41,10 @@ app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'your-email@gmail.com' # Replace in Prod
 app.config['MAIL_PASSWORD'] = 'your-password' # Replace in Prod
 app.config['MAIL_DEFAULT_SENDER'] = 'library@example.com'
-app.config['MAIL_BACKEND'] = 'flask_mail.backends.console.Mail' # Log to console for now
+# Use Dummy backend by default to prevent crashes on Vercel unless explicitly configured
+app.config['MAIL_BACKEND'] = 'flask_mail.backends.dummy.Mail' if not os.environ.get('MAIL_PASSWORD') else 'flask_mail.backends.smtp.Mail'
+if os.environ.get('VERCEL') and not os.environ.get('MAIL_PASSWORD'):
+    print("Vercel detected without Mail config: Email sending disabled.")
 
 mail = Mail(app)
 db = SQLAlchemy(app)
@@ -54,10 +57,14 @@ def send_async_email(app, msg):
             print(f"Error sending email: {e}")
 
 def send_email(subject, recipient, body):
-    msg = Message(subject, recipients=[recipient])
-    msg.body = body
-    # Threading to avoid blocking response
-    Thread(target=send_async_email, args=(app, msg)).start()
+    try:
+        msg = Message(subject, recipients=[recipient])
+        msg.body = body
+        # Threading to avoid blocking response
+        Thread(target=send_async_email, args=(app, msg)).start()
+    except Exception as e:
+        print(f"Failed to initiate email: {e}")
+        # Do not crash the app if email fails
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
@@ -706,6 +713,25 @@ def initialize_database():
     if not getattr(app, 'db_initialized', False):
         init_db()
         app.db_initialized = True
+
+@app.route('/health')
+def health_check():
+    status = {
+        "status": "ok",
+        "database": "unknown",
+        "environment": "vercel" if os.environ.get('VERCEL') else "local"
+    }
+    
+    try:
+        # Check DB connection
+        db.session.execute(db.text('SELECT 1'))
+        db_type = "postgresql" if "postgresql" in app.config['SQLALCHEMY_DATABASE_URI'] else "sqlite"
+        status["database"] = f"connected ({db_type})"
+    except Exception as e:
+        status["status"] = "error"
+        status["database"] = f"disconnected: {str(e)}"
+        
+    return status
 
 if __name__ == '__main__':
     with app.app_context():
