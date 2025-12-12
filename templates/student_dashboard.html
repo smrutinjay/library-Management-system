@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block header %}Welcome, Student!{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- Penalty Alert (if any) -->
+    {% if my_penalty > 0 %}
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm flex items-center justify-between">
+        <div class="flex items-center">
+            <div class="p-2 bg-red-100 rounded-full text-red-600 mr-3">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div>
+                <h3 class="text-red-800 font-bold text-lg">Outstanding Fines</h3>
+                <p class="text-red-600 text-sm">You have overdue books. Please return them to avoid higher penalties.
+                </p>
+            </div>
+        </div>
+        <div class="text-3xl font-bold text-red-700 mr-4">
+            ₹{{ my_penalty }}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Current Loans Section (if any) -->
+    {% if my_loans %}
+    <div>
+        <h2 class="text-lg font-semibold text-slate-800 mb-4">Your Active Loans</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for loan in my_loans %}
+            <div class="bg-white rounded-xl shadow-sm border border-l-4 border-l-blue-600 p-5 relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-bold text-slate-800">{{ loan.book.title }}</h4>
+                        <p class="text-sm text-slate-500 mb-2">by {{ loan.book.author }}</p>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-slate-100 flex justify-between text-xs items-center">
+                    <span class="text-slate-500">Due Date:</span>
+                    <span
+                        class="font-bold {{ 'text-red-600' if loan.due_date < loan.issue_date.utcnow() else 'text-slate-700' }}">
+                        {{ loan.due_date.strftime('%b %d, %Y') }}
+                    </span>
+                </div>
+                {% if loan.penalty > 0 %}
+                <div
+                    class="absolute top-0 right-0 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-md">
+                    Fine: ₹{{ loan.penalty }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Browse Books -->
+    <div>
+        <h2 class="text-lg font-semibold text-slate-800 mb-4">Browse Collection</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {% for book in books %}
+            <div
+                class="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-slate-100 flex flex-col h-full">
+                <div class="p-5 flex-1">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold px-2 py-1 bg-slate-100 rounded text-slate-600 uppercase">{{
+                            book.category or 'General' }}</span>
+                        <span
+                            class="text-xs px-2 py-1 rounded {{ 'bg-green-100 text-green-700' if book.available > 0 else 'bg-red-100 text-red-700' }}">
+                            {{ 'Available' if book.available > 0 else 'Out of Stock' }}
+                        </span>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg leading-tight mb-1">{{ book.title }}</h3>
+                    <p class="text-sm text-slate-500 mb-3">{{ book.author }}</p>
+                    <p class="text-xs text-slate-400 font-mono">ISBN: {{ book.isbn }}</p>
+                </div>
+            </div>
+            {% else %}
+            <div
+                class="col-span-full py-12 text-center text-slate-500 bg-white rounded-xl border border-dashed border-slate-200">
+                <p>No books available in the library right now.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
