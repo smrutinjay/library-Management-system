@@ -751,21 +751,6 @@ def health_check():
         status["database"] = f"disconnected: {str(e)}"
         
     return status
-    
-    try:
-        # Check if init failed previously
-        if app.config.get('DB_INIT_ERROR'):
-             raise Exception(f"Init Failed: {app.config['DB_INIT_ERROR']}")
-
-        # Check DB connection
-        db.session.execute(db.text('SELECT 1'))
-        db_type = "postgresql" if "postgresql" in app.config['SQLALCHEMY_DATABASE_URI'] else "sqlite"
-        status["database"] = f"connected ({db_type})"
-    except Exception as e:
-        status["status"] = "error"
-        status["database"] = f"disconnected: {str(e)}"
-        
-    return status
 
 if __name__ == '__main__':
     with app.app_context():
