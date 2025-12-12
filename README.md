@@ -1,7 +1,13 @@
-<<<<<<< HEAD
 # Library Management System
 
 A comprehensive Library Management System built with Flask, SQLAlchemy, and Tailwind CSS.
+
+> [!WARNING]
+> **Important Note for Vercel Deployment:**
+> This application uses SQLite. Vercel's filesystem is **read-only and ephemeral** (temporary).
+> 1.  **Data Loss**: Any user you register or book you add on Vercel will be **deleted** when the server sleeps or restarts (usually every few minutes).
+> 2.  **Login Failures**: If you register a student, the database might reset before you can log in, causing "User not found".
+> 3.  **Recommendation**: For a permanent app, use **PythonAnywhere** or connect this app to a cloud database like PostgreSQL (Supabase/Neon).
 
 ## Features
 
@@ -35,7 +41,3 @@ A comprehensive Library Management System built with Flask, SQLAlchemy, and Tail
 -   **Database**: SQLite (SQLAlchemy)
 -   **Frontend**: HTML, Tailwind CSS, JavaScript
 -   **Deployment**: Waitress (WSGI), Docker
-=======
-# library-Management-system
-This is a library management system
->>>>>>> 703435e82137d044e020bc7d01b8e24fd5b3ea2c
