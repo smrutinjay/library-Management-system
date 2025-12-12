@@ -14,24 +14,7 @@ from threading import Thread
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'dev-secret-key-change-in-prod'
 
-# Database Configuration
-# Vercel Storage (Neon) usually sets POSTGRES_URL
-database_url = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
-
-if database_url:
-    # Fix for SQLAlchemy requiring 'postgresql://' instead of 'postgres://'
-    if database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
-    
-    # Enforce SSL for Neon
-    if "sslmode" not in database_url:
-        database_url += "?sslmode=require"
-        
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-elif os.environ.get('VERCEL'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/library.db'
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///library.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///library.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
@@ -42,10 +25,7 @@ app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'your-email@gmail.com' # Replace in Prod
 app.config['MAIL_PASSWORD'] = 'your-password' # Replace in Prod
 app.config['MAIL_DEFAULT_SENDER'] = 'library@example.com'
-# Use Dummy backend by default to prevent crashes on Vercel unless explicitly configured
-app.config['MAIL_BACKEND'] = 'flask_mail.backends.dummy.Mail' if not os.environ.get('MAIL_PASSWORD') else 'flask_mail.backends.smtp.Mail'
-if os.environ.get('VERCEL') and not os.environ.get('MAIL_PASSWORD'):
-    print("Vercel detected without Mail config: Email sending disabled.")
+app.config['MAIL_BACKEND'] = 'flask_mail.backends.console.Mail' # Log to console for now
 
 mail = Mail(app)
 db = SQLAlchemy(app)
@@ -58,14 +38,10 @@ def send_async_email(app, msg):
             print(f"Error sending email: {e}")
 
 def send_email(subject, recipient, body):
-    try:
-        msg = Message(subject, recipients=[recipient])
-        msg.body = body
-        # Threading to avoid blocking response
-        Thread(target=send_async_email, args=(app, msg)).start()
-    except Exception as e:
-        print(f"Failed to initiate email: {e}")
-        # Do not crash the app if email fails
+    msg = Message(subject, recipients=[recipient])
+    msg.body = body
+    # Threading to avoid blocking response
+    Thread(target=send_async_email, args=(app, msg)).start()
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
@@ -191,15 +167,7 @@ def register():
                 return redirect(request.url)
                 
             filename = secure_filename(photo.filename)
-            
-            # Vercel filesystem is Read-Only. We cannot save files to static/uploads.
-            if os.environ.get('VERCEL'):
-                # In a real app, upload to S3/Cloudinary here.
-                # For now, we just skip saving the file but allow registration.
-                pass 
-            else:
-                photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            
+            photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             photo_filename = filename
 
         # Date conversion
@@ -483,14 +451,8 @@ def import_books():
             
         if file and file.filename.endswith('.xlsx'):
             try:
-                import pandas as pd
-                import openpyxl
-            except ImportError:
-                flash('Import feature unavailable: libraries not installed (Vercel size limit).', 'error')
-                return redirect(url_for('manage_books'))
-
-            try:
                 # Read Excel
+                import pandas as pd
                 df = pd.read_excel(file)
                 
                 # Check columns
@@ -705,61 +667,19 @@ def student_payments():
 def init_db():
     try:
         db.create_all()
-        
         # Create default admin if not exists
         if not User.query.filter_by(username='admin').first():
             admin = User(username='admin', email='admin@library.com', role='admin')
             admin.set_password('admin123')
             db.session.add(admin)
             db.session.commit()
+        # print("Database initialized successfully.") 
     except Exception as e:
-        app.config['DB_INIT_ERROR'] = str(e)
-        print(f"Database Init Failed: {e}")
+        print(f"Error initializing database: {e}")
 
-@app.before_request
-def initialize_database():
-    # SKIP auto-init on Vercel to prevent boot timeouts/crashes
-    if os.environ.get('VERCEL'):
-         return
 
-    if not getattr(app, 'db_initialized', False):
-        init_db()
-        app.db_initialized = True
-
-@app.route('/health')
-def health_check():
-    status = {
-        "status": "ok",
-        "database": "unknown",
-        "driver": "unknown",
-        "environment": "vercel" if os.environ.get('VERCEL') else "local"
-    }
-    
-    try:
-        # Check if driver is installed
-        import psycopg2
-        status["driver"] = f"psycopg2 installed ({psycopg2.__version__})"
-    except ImportError:
-        status["driver"] = "psycopg2 NOT FOUND"
-    except Exception as e:
-        status["driver"] = f"error checking driver: {e}"
-
-    try:
-        if app.config.get('DB_INIT_ERROR'):
-             status["init_error"] = str(app.config['DB_INIT_ERROR'])
-
-        # Check DB connection
-        db.session.execute(db.text('SELECT 1'))
-        db_type = "postgresql" if "postgresql" in app.config['SQLALCHEMY_DATABASE_URI'] else "sqlite"
-        status["database"] = f"connected ({db_type})"
-    except Exception as e:
-        status["status"] = "error"
-        status["database"] = f"disconnected: {str(e)}"
-        
-    return status
 
 if __name__ == '__main__':
     with app.app_context():
-        # init_db() # Handled by before_request
-        pass
+        init_db()
     app.run(debug=True)
