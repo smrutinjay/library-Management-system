@@ -12,8 +12,14 @@ import pandas as pd
 
 # Configuration
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'dev-secret-key-change-in-prod' # Replace with a strong secret key
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///library.db'
+app.config['SECRET_KEY'] = 'dev-secret-key-change-in-prod'
+
+# Vercel filesystem is read-only except /tmp
+if os.environ.get('VERCEL'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/library.db'
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///library.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 # Email Config (Console Backend for testing - Prints to terminal)
