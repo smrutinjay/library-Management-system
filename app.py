@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask_mail import Mail, Message
 from threading import Thread
-import pandas as pd
+# import pandas as pd # Moved to lazy import
 
 # Configuration
 app = Flask(__name__)
@@ -452,6 +452,7 @@ def import_books():
         if file and file.filename.endswith('.xlsx'):
             try:
                 # Read Excel
+                import pandas as pd
                 df = pd.read_excel(file)
                 
                 # Check columns
