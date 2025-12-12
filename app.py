@@ -712,6 +712,10 @@ def init_db():
 
 @app.before_request
 def initialize_database():
+    # SKIP auto-init on Vercel to prevent boot timeouts/crashes
+    if os.environ.get('VERCEL'):
+         return
+
     if not getattr(app, 'db_initialized', False):
         init_db()
         app.db_initialized = True
@@ -721,8 +725,32 @@ def health_check():
     status = {
         "status": "ok",
         "database": "unknown",
+        "driver": "unknown",
         "environment": "vercel" if os.environ.get('VERCEL') else "local"
     }
+    
+    try:
+        # Check if driver is installed
+        import psycopg2
+        status["driver"] = f"psycopg2 installed ({psycopg2.__version__})"
+    except ImportError:
+        status["driver"] = "psycopg2 NOT FOUND"
+    except Exception as e:
+        status["driver"] = f"error checking driver: {e}"
+
+    try:
+        if app.config.get('DB_INIT_ERROR'):
+             status["init_error"] = str(app.config['DB_INIT_ERROR'])
+
+        # Check DB connection
+        db.session.execute(db.text('SELECT 1'))
+        db_type = "postgresql" if "postgresql" in app.config['SQLALCHEMY_DATABASE_URI'] else "sqlite"
+        status["database"] = f"connected ({db_type})"
+    except Exception as e:
+        status["status"] = "error"
+        status["database"] = f"disconnected: {str(e)}"
+        
+    return status
     
     try:
         # Check if init failed previously
