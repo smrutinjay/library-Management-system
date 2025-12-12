@@ -694,7 +694,34 @@ def initialize_database():
         init_db()
         app.db_initialized = True
 
+@app.route('/debug-config')
+def debug_config():
+    # Only available if secret key matches (simple protection)
+    if request.args.get('key') != 'debug123':
+        return "Access Denied"
+        
+    db_status = "Unknown"
+    error_msg = ""
+    try:
+        # Test connection
+        db.session.execute(db.text('SELECT 1'))
+        db_status = "Connected"
+    except Exception as e:
+        db_status = "Connection Failed"
+        error_msg = str(e)
+        
+    config_info = {
+        "DATABASE_URL_SET": bool(os.environ.get('DATABASE_URL')),
+        "DB_URI_PREFIX": app.config['SQLALCHEMY_DATABASE_URI'].split('://')[0] if app.config.get('SQLALCHEMY_DATABASE_URI') else "None",
+        "DB_STATUS": db_status,
+        "ERROR": error_msg,
+        "VERCEL_ENV": bool(os.environ.get('VERCEL'))
+    }
+    return config_info
+
 if __name__ == '__main__':
     with app.app_context():
-        init_db()
+        # Lazy init might be better for Vercel, but for local run we can do it here
+        # init_db() # Handled by before_request
+        pass
     app.run(debug=True)
