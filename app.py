@@ -697,17 +697,18 @@ def student_payments():
 # --- Initialize DB ---
 # --- Initialize DB Lazily ---
 def init_db():
-    # Attempt to create tables. If this fails (e.g., connection error),
-    # let it crash so Vercel logs show the REAL error.
-    db.create_all()
-    
-    # Create default admin if not exists
-    if not User.query.filter_by(username='admin').first():
-        admin = User(username='admin', email='admin@library.com', role='admin')
-        admin.set_password('admin123')
-        db.session.add(admin)
-        db.session.commit()
-    # print("Database initialized successfully.")
+    try:
+        db.create_all()
+        
+        # Create default admin if not exists
+        if not User.query.filter_by(username='admin').first():
+            admin = User(username='admin', email='admin@library.com', role='admin')
+            admin.set_password('admin123')
+            db.session.add(admin)
+            db.session.commit()
+    except Exception as e:
+        app.config['DB_INIT_ERROR'] = str(e)
+        print(f"Database Init Failed: {e}")
 
 @app.before_request
 def initialize_database():
@@ -724,6 +725,10 @@ def health_check():
     }
     
     try:
+        # Check if init failed previously
+        if app.config.get('DB_INIT_ERROR'):
+             raise Exception(f"Init Failed: {app.config['DB_INIT_ERROR']}")
+
         # Check DB connection
         db.session.execute(db.text('SELECT 1'))
         db_type = "postgresql" if "postgresql" in app.config['SQLALCHEMY_DATABASE_URI'] else "sqlite"
