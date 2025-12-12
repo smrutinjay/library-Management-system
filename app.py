@@ -183,7 +183,15 @@ def register():
                 return redirect(request.url)
                 
             filename = secure_filename(photo.filename)
-            photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            
+            # Vercel filesystem is Read-Only. We cannot save files to static/uploads.
+            if os.environ.get('VERCEL'):
+                # In a real app, upload to S3/Cloudinary here.
+                # For now, we just skip saving the file but allow registration.
+                pass 
+            else:
+                photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            
             photo_filename = filename
 
         # Date conversion
