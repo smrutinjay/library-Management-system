@@ -483,8 +483,14 @@ def import_books():
             
         if file and file.filename.endswith('.xlsx'):
             try:
-                # Read Excel
                 import pandas as pd
+                import openpyxl
+            except ImportError:
+                flash('Import feature unavailable: libraries not installed (Vercel size limit).', 'error')
+                return redirect(url_for('manage_books'))
+
+            try:
+                # Read Excel
                 df = pd.read_excel(file)
                 
                 # Check columns
