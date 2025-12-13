@@ -698,38 +698,38 @@ def bulk_delete_books():
             flash('Invalid file. Please upload an Excel (.xlsx) file.', 'error')
             return redirect(request.url)
             
-            try:
-                import pandas as pd
-                df = pd.read_excel(file)
-            except Exception as e:
-                flash(f'Error reading Excel file: {e}', 'error')
-                return redirect(request.url)
+        try:
+            import pandas as pd
+            df = pd.read_excel(file)
+        except Exception as e:
+            flash(f'Error reading Excel file: {e}', 'error')
+            return redirect(request.url)
+        
+        if 'Title' not in df.columns:
+            flash('Missing "Title" column in Excel.', 'error')
+            return redirect(request.url)
+        
+        deleted_count = 0
+        not_found_count = 0
+        
+        for title in df['Title']:
+            title = str(title).strip()
+            if not title: continue
             
-            if 'Title' not in df.columns:
-                flash('Missing "Title" column in Excel.', 'error')
-                return redirect(request.url)
-            
-            deleted_count = 0
-            not_found_count = 0
-            
-            for title in df['Title']:
-                title = str(title).strip()
-                if not title: continue
-                
-                book = Book.query.filter_by(title=title).first()
-                if book:
-                    # Optional: Check if active loans exist? For now, we force delete as requested.
-                    # Note: This might cascade delete transactions depending on DB setup, 
-                    # but current setup might leave orphaned transactions or error. 
-                    # We will assume admin knows what they are doing for "Bulk Delete".
-                    db.session.delete(book)
-                    deleted_count += 1
-                else:
-                    not_found_count += 1
-            
-            db.session.commit()
-            flash(f'Bulk Delete Complete: Deleted {deleted_count} books. {not_found_count} not found.', 'info')
-            return redirect(url_for('manage_books'))
+            book = Book.query.filter_by(title=title).first()
+            if book:
+                # Optional: Check if active loans exist? For now, we force delete as requested.
+                # Note: This might cascade delete transactions depending on DB setup, 
+                # but current setup might leave orphaned transactions or error. 
+                # We will assume admin knows what they are doing for "Bulk Delete".
+                db.session.delete(book)
+                deleted_count += 1
+            else:
+                not_found_count += 1
+        
+        db.session.commit()
+        flash(f'Bulk Delete Complete: Deleted {deleted_count} books. {not_found_count} not found.', 'info')
+        return redirect(url_for('manage_books'))
             
         except Exception as e:
             flash(f'Error processing file: {str(e)}', 'error')
