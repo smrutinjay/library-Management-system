@@ -260,8 +260,16 @@ def register():
                 return redirect(request.url)
                 
             filename = secure_filename(photo.filename)
-            photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            photo_filename = filename
+            try:
+                # Ensure upload directory exists (it might not on Vercel)
+                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+                photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                photo_filename = filename
+            except OSError:
+                # Vercel is Read-Only. We log the error but proceed with registration.
+                print("Warning: Could not save photo (Read-Only Filesystem). Registration continuing without photo.")
+                flash('Registration successful, but photo could not be saved (Server limitation).', 'warning')
+                photo_filename = None
 
         # Date conversion
         dob = datetime.strptime(dob_str, '%Y-%m-%d').date() if dob_str else None
