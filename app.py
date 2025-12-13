@@ -8,25 +8,16 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask_mail import Mail, Message
 from threading import Thread
+from itsdangerous import URLSafeTimedSerializer
 # import pandas as pd # Moved to lazy import
+
+from config import Config
 
 # Configuration
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'dev-secret-key-change-in-prod'
+app.config.from_object(Config)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///library.db'
-
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
-# Email Config (Console Backend for testing - Prints to terminal)
-app.config['MAIL_SERVER'] = 'smtp.gmail.com' # Placeholder
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'your-email@gmail.com' # Replace in Prod
-app.config['MAIL_PASSWORD'] = 'your-password' # Replace in Prod
-app.config['MAIL_DEFAULT_SENDER'] = 'library@example.com'
-app.config['MAIL_BACKEND'] = 'flask_mail.backends.console.Mail' # Log to console for now
-
+# Initialize Extensions
 mail = Mail(app)
 db = SQLAlchemy(app)
 
@@ -37,11 +28,38 @@ def send_async_email(app, msg):
         except Exception as e:
             print(f"Error sending email: {e}")
 
-def send_email(subject, recipient, body):
+def send_email(subject, recipient, body, html_body=None):
     msg = Message(subject, recipients=[recipient])
     msg.body = body
-    # Threading to avoid blocking response
-    Thread(target=send_async_email, args=(app, msg)).start()
+    
+    if html_body:
+        msg.html = html_body
+    else:
+        # Auto-wrap plain text in our standard template
+        msg.html = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #f8fafc;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #1e293b; margin: 0;">{subject}</h2>
+                <p style="color: #64748b; font-size: 14px;">Library Management System</p>
+            </div>
+            <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <p style="color: #334155; font-size: 15px; line-height: 1.6; white-space: pre-line;">
+{body}
+                </p>
+                <p style="color: #94a3b8; font-size: 12px; margin-top: 20px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                    Library Management System Automation
+                </p>
+            </div>
+        </div>
+        """
+
+    # SYNCHRONOUS SENDING (Reliability over Speed)
+    try:
+        mail.send(msg)
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        # We don't re-raise to avoid crashing the user's request, 
+        # but now we know if it fails it won't be silent in logs.
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
@@ -140,6 +158,81 @@ def login():
             flash('Invalid username or password', 'error')
     
     return render_template('auth.html', mode='login')
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+            token = s.dumps(user.email, salt='password-reset-salt')
+            link = url_for('reset_password', token=token, _external=True)
+            
+            # HTML Email Template
+            html_content = f"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #f8fafc;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h2 style="color: #1e293b; margin: 0;">Password Reset Request</h2>
+                    <p style="color: #64748b; font-size: 14px;">Library Management System</p>
+                </div>
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <p style="color: #334155; font-size: 16px; margin-bottom: 20px;">Hi <strong>{user.username}</strong>,</p>
+                    <p style="color: #475569; font-size: 15px; line-height: 1.5; margin-bottom: 25px;">
+                        We received a request to reset your password. Click the button below to choose a new one.
+                        This link will expire in 1 hour.
+                    </p>
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <a href="{link}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Reset Password</a>
+                    </div>
+                    <p style="color: #94a3b8; font-size: 12px; margin-top: 20px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                        If you did not request this, please ignore this email. Your password will remain unchanged.
+                    </p>
+                </div>
+            </div>
+            """
+            
+            send_email('Password Reset Request', user.email, 
+                      f"Click the link to reset your password: {link}",
+                      html_body=html_content)
+            
+        flash('If an account exists with that email, a verification link has been sent.', 'info')
+        return redirect(url_for('login'))
+        
+    return render_template('forgot_password.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+        
+    try:
+        s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+        email = s.loads(token, salt='password-reset-salt', max_age=3600) # 1 hour expiry
+    except Exception:
+        flash('The password reset link is invalid or has expired.', 'error')
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return redirect(request.url)
+            
+        user = User.query.filter_by(email=email).first_or_404()
+        user.set_password(password)
+        db.session.commit()
+        
+        flash('Your password has been updated! You can now login.', 'success')
+        return redirect(url_for('login'))
+        
+    return render_template('reset_password.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -422,10 +515,53 @@ def return_book_transaction(transaction_id):
     
     db.session.commit()
     
-    # Send Return Email
-    penalty_msg = f"\nPenalty: ₹{transaction.penalty}" if transaction.penalty > 0 else ""
-    send_email('Book Returned', transaction.user.email,
-              f"Hi {transaction.user.full_name},\n\nYou have returned: {book.title}\nReturned On: {transaction.return_date.strftime('%Y-%m-%d')}{penalty_msg}\n\nThank you!")
+    db.session.commit()
+    
+    # Custom HTML Email for Return/Penalty
+    penalty_html = ""
+    if transaction.penalty > 0:
+        penalty_html = f"""
+        <div style="background-color: #fef2f2; border: 1px solid #ef4444; border-radius: 6px; padding: 15px; margin-top: 20px;">
+            <h3 style="color: #b91c1c; margin: 0 0 10px 0;">Penalty Notice</h3>
+            <p style="color: #7f1d1d; margin: 0;">
+                A penalty of <strong>₹{transaction.penalty}</strong> has been applied due to late return.<br>
+                Please <strong>login into your account</strong> to pay the dues.
+            </p>
+        </div>
+        """
+    
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #f8fafc;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #1e293b; margin: 0;">Book Return Receipt</h2>
+            <p style="color: #64748b; font-size: 14px;">Library Management System</p>
+        </div>
+        
+        <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0;">
+                <h3 style="color: #334155; margin: 0 0 10px 0;">Student Details</h3>
+                <p style="margin: 5px 0; color: #475569;"><strong>Name:</strong> {transaction.user.full_name}</p>
+                <p style="margin: 5px 0; color: #475569;"><strong>Reg No:</strong> {transaction.user.registration_number}</p>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #334155; margin: 0 0 10px 0;">Book Details</h3>
+                <p style="margin: 5px 0; color: #475569;"><strong>Title:</strong> {book.title}</p>
+                <p style="margin: 5px 0; color: #475569;"><strong>Returned On:</strong> {transaction.return_date.strftime('%Y-%m-%d')}</p>
+            </div>
+
+            {penalty_html}
+
+            <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">
+                This is a system generated receipt. No signature required.
+            </p>
+        </div>
+    </div>
+    """
+
+    send_email('Book Return & Penalty Update', transaction.user.email, 
+               f"Book returned: {book.title}. Penalty: {transaction.penalty}",
+               html_body=html_content)
               
     flash('Book returned successfully.', 'success')
     
@@ -614,16 +750,76 @@ def student_dashboard():
         favorite_genre = Counter(genres).most_common(1)[0][0]
     
     books = Book.query.all()
+    borrowed_ids = [loan.book_id for loan in my_loans]
+    
+    # Extract unique categories for filter
+    # Use set comprehension for uniqueness, filter None
+    categories = sorted(list(set(b.category for b in books if b.category)))
     
     return render_template('student_dashboard.html', 
                            books=books, 
                            my_loans=my_loans, 
+                           borrowed_ids=borrowed_ids,
+                           categories=categories,
                            my_penalty=my_penalty,
                            analytics={
                                'read': total_books_read,
                                'penalties': total_penalties_incurred,
                                'genre': favorite_genre
                            })
+
+@app.route('/student/issue/<int:book_id>', methods=['POST'])
+@login_required
+def student_issue_book(book_id):
+    # Security: Ensure role is student (or admin pretending, but mostly student)
+    if current_user.role != 'student':
+        flash('Only students can borrow books directly.', 'error')
+        return redirect(url_for('index'))
+
+    book = Book.query.get_or_404(book_id)
+    
+    # Validation 1: Check Availability
+    if book.available < 1:
+        flash('Book is currently out of stock.', 'error')
+        return redirect(url_for('student_dashboard'))
+        
+    # Validation 2: Check if already borrowed (Active Loan)
+    existing_loan = Transaction.query.filter_by(user_id=current_user.id, book_id=book.id, status='issued').first()
+    if existing_loan:
+        flash('You have already borrowed this book.', 'warning')
+        return redirect(url_for('student_dashboard'))
+
+    # Limit total books? (Optional, let's say 5)
+    active_loans_count = Transaction.query.filter_by(user_id=current_user.id, status='issued').count()
+    if active_loans_count >= 5:
+        flash('You cannot borrow more than 5 books at a time. Please return some first.', 'error')
+        return redirect(url_for('student_dashboard'))
+
+    # Proceed to Issue
+    # Default duration: 14 days
+    days = 14
+    due_date = datetime.utcnow() + timedelta(days=days)
+    
+    transaction = Transaction(
+        user_id=current_user.id, 
+        book_id=book.id, 
+        due_date=due_date,
+        status='issued' # Explicitly set status to ensure visibility
+    )
+    book.available -= 1
+    
+    db.session.add(transaction)
+    db.session.commit()
+    
+    # Determine Email (Async)
+    try:
+        send_email('Book Borrowed Successfully', current_user.email, 
+                  f"Hi {current_user.full_name},\n\nYou have successfully borrowed: {book.title}\nDue Date: {due_date.strftime('%Y-%m-%d')}")
+    except Exception:
+        pass # Don't block on email failure
+        
+    flash(f'Successfully borrowed "{book.title}". Due date: {due_date.strftime("%Y-%m-%d")}', 'success')
+    return redirect(url_for('student_dashboard'))
 
 @app.route('/student/history')
 @login_required
@@ -648,7 +844,45 @@ def student_payments():
             transaction.fine_paid = True
             transaction.payment_id = f"TXN-{str(uuid.uuid4())[:8].upper()}"
             db.session.commit()
-            flash(f'Payment successful! Transaction ID: {transaction.payment_id}', 'success')
+
+            # Email Receipt
+            try:
+                html_receipt = f"""
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #f8fafc;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h2 style="color: #1e293b; margin: 0;">Payment Receipt</h2>
+                        <p style="color: #64748b; font-size: 14px;">Library Management System</p>
+                    </div>
+                    <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div style="text-align: center; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                            <span style="display: inline-block; background-color: #dcfce7; color: #166534; padding: 5px 10px; border-radius: 99px; font-size: 12px; font-weight: bold;">
+                                PAID SUCCESSFULLY
+                            </span>
+                            <h3 style="color: #15803d; font-size: 24px; margin: 10px 0;">₹{transaction.penalty}</h3>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <p style="margin: 5px 0; color: #475569;"><strong>Transaction ID:</strong> {transaction.payment_id}</p>
+                            <p style="margin: 5px 0; color: #475569;"><strong>Book:</strong> {transaction.book.title}</p>
+                            <p style="margin: 5px 0; color: #475569;"><strong>Returned On:</strong> {transaction.return_date.strftime('%Y-%m-%d')}</p>
+                        </div>
+                        
+                        <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">
+                            Thank you for clearing your dues.
+                        </p>
+                    </div>
+                </div>
+                """
+                
+                msg = Message(f'Payment Receipt: {transaction.payment_id}', recipients=[current_user.email])
+                msg.html = html_receipt
+                msg.body = f"Payment Successful. ID: {transaction.payment_id}. Amount: {transaction.penalty}"
+                mail.send(msg)
+                
+            except Exception as e:
+                print(f"Receipt Email Failed: {e}")
+
+            flash(f'Payment successful! Transaction ID: {transaction.payment_id}. Receipt sent to email.', 'success')
         
         return redirect(url_for('student_payments'))
     
