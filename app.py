@@ -701,6 +701,9 @@ def bulk_delete_books():
             try:
                 import pandas as pd
                 df = pd.read_excel(file)
+            except Exception as e:
+                flash(f'Error reading Excel file: {e}', 'error')
+                return redirect(request.url)
             
             if 'Title' not in df.columns:
                 flash('Missing "Title" column in Excel.', 'error')
