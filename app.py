@@ -12,6 +12,8 @@ from itsdangerous import URLSafeTimedSerializer
 # import pandas as pd # Moved to lazy import
 
 from config import Config
+import cloudinary
+import cloudinary.uploader
 
 # Configuration
 app = Flask(__name__)
@@ -20,6 +22,13 @@ app.config.from_object(Config)
 # Initialize Extensions
 mail = Mail(app)
 db = SQLAlchemy(app)
+
+# Cloudinary Config
+cloudinary.config( 
+  cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME'), 
+  api_key = os.getenv('CLOUDINARY_API_KEY'), 
+  api_secret = os.getenv('CLOUDINARY_API_SECRET') 
+)
 
 def send_async_email(app, msg):
     with app.app_context():
@@ -76,7 +85,7 @@ class User(UserMixin, db.Model):
     registration_number = db.Column(db.String(20), unique=True)
     section = db.Column(db.String(10))
     semester = db.Column(db.Integer)
-    photo_filename = db.Column(db.String(100))
+    photo_filename = db.Column(db.String(500)) # Increased for Cloudinary URL
     is_blocked = db.Column(db.Boolean, default=False)
     mobile_number = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -259,16 +268,13 @@ def register():
                 flash('Invalid photo format. Please use PNG, JPG, or JPEG.', 'error')
                 return redirect(request.url)
                 
-            filename = secure_filename(photo.filename)
             try:
-                # Ensure upload directory exists (it might not on Vercel)
-                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-                photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                photo_filename = filename
-            except OSError:
-                # Vercel is Read-Only. We log the error but proceed with registration.
-                print("Warning: Could not save photo (Read-Only Filesystem). Registration continuing without photo.")
-                flash('Registration successful, but photo could not be saved (Server limitation).', 'warning')
+                # Upload to Cloudinary
+                upload_result = cloudinary.uploader.upload(photo)
+                photo_filename = upload_result['secure_url']
+            except Exception as e:
+                print(f"Cloudinary Upload Error: {e}")
+                flash('Could not upload photo to cloud. Registration continuing.', 'warning')
                 photo_filename = None
 
         # Date conversion

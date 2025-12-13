@@ -115,10 +115,15 @@
             </div>
             <div class="flex items-center space-x-4">
                 <div class="flex items-center space-x-2">
+                    {% if current_user.photo_filename %}
+                    <img src="{{ current_user.photo_filename }}" alt="Profile"
+                        class="w-8 h-8 rounded-full object-cover border border-blue-200">
+                    {% else %}
                     <div
                         class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
                         {{ current_user.username[0].upper() }}
                     </div>
+                    {% endif %}
                     <span class="text-sm font-medium text-slate-600">{{ current_user.username }} ({{
                         current_user.role|capitalize }})</span>
                 </div>
