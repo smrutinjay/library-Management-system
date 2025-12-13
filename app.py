@@ -709,6 +709,9 @@ def bulk_delete_books():
             flash('Missing "Title" column in Excel.', 'error')
             return redirect(request.url)
         
+        deleted_count = 0
+        not_found_count = 0
+
         try:
             for title in df['Title']:
                 title = str(title).strip()
