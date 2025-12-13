@@ -709,26 +709,37 @@ def bulk_delete_books():
             flash('Missing "Title" column in Excel.', 'error')
             return redirect(request.url)
         
-        deleted_count = 0
-        not_found_count = 0
-        
-        for title in df['Title']:
-            title = str(title).strip()
-            if not title: continue
+        try:
+            for title in df['Title']:
+                title = str(title).strip()
+                if not title: continue
+                
+                book = Book.query.filter_by(title=title).first()
+                if book:
+                    # Check for active transactions to avoid FK errors
+                    active_tx = Transaction.query.filter_by(book_id=book.id, status='issued').first()
+                    if active_tx:
+                        continue # Skip currently borrowed books
+                        
+                    # Delete related transactions history if any (depending on policy)
+                    # For now, we only delete if NO active transactions. 
+                    # If we need to delete history too:
+                    old_txs = Transaction.query.filter_by(book_id=book.id).all()
+                    for tx in old_txs:
+                        db.session.delete(tx)
+
+                    db.session.delete(book)
+                    deleted_count += 1
+                else:
+                    not_found_count += 1
             
-            book = Book.query.filter_by(title=title).first()
-            if book:
-                # Optional: Check if active loans exist? For now, we force delete as requested.
-                # Note: This might cascade delete transactions depending on DB setup, 
-                # but current setup might leave orphaned transactions or error. 
-                # We will assume admin knows what they are doing for "Bulk Delete".
-                db.session.delete(book)
-                deleted_count += 1
-            else:
-                not_found_count += 1
+            db.session.commit()
+            flash(f'Bulk Delete Complete: Deleted {deleted_count} books. {not_found_count} not found. (Skipped borrowed books)', 'info')
+        except Exception as e:
+            db.session.rollback()
+            print(f"Bulk Delete Error: {e}")
+            flash(f'Database Error during delete: {e}', 'error')
         
-        db.session.commit()
-        flash(f'Bulk Delete Complete: Deleted {deleted_count} books. {not_found_count} not found.', 'info')
         return redirect(url_for('manage_books'))
 
     return render_template('bulk_delete.html')
