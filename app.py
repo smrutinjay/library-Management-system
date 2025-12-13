@@ -730,10 +730,6 @@ def bulk_delete_books():
         db.session.commit()
         flash(f'Bulk Delete Complete: Deleted {deleted_count} books. {not_found_count} not found.', 'info')
         return redirect(url_for('manage_books'))
-            
-        except Exception as e:
-            flash(f'Error processing file: {str(e)}', 'error')
-            return redirect(request.url)
 
     return render_template('bulk_delete.html')
 
