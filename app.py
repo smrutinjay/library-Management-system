@@ -698,8 +698,9 @@ def bulk_delete_books():
             flash('Invalid file. Please upload an Excel (.xlsx) file.', 'error')
             return redirect(request.url)
             
-        try:
-            df = pd.read_excel(file)
+            try:
+                import pandas as pd
+                df = pd.read_excel(file)
             
             if 'Title' not in df.columns:
                 flash('Missing "Title" column in Excel.', 'error')
